@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520" role="img" aria-labelledby="title desc">
+  <title id="title">Second supporting photo placeholder</title>
+  <desc id="desc">Abstract placeholder graphic; replace with a second approved supporting photograph.</desc>
+  <rect width="400" height="520" fill="#cbc6bb"/>
+  <path d="M0 82h400M0 96h400M0 110h400" stroke="#111110" stroke-width="1" opacity=".45"/>
+  <path d="M62 149h276v233H62z" fill="#f3f0e8" stroke="#111110" stroke-width="2"/>
+  <path d="M62 330h276" stroke="#111110" stroke-width="1"/>
+  <circle cx="282" cy="242" r="54" fill="#ff0090"/>
+  <path d="M93 203h105M93 220h84M93 237h65" stroke="#111110" stroke-width="3"/>
+  <text x="62" y="424" fill="#111110" font-family="sans-serif" font-size="12" letter-spacing="3">03 / SUPPORT</text>
+  <text x="62" y="447" fill="#111110" font-family="sans-serif" font-size="10" letter-spacing="2">REPLACE WITH PHOTO</text>
+</svg>

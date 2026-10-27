@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520" role="img" aria-labelledby="title desc">
+  <title id="title">Supporting photo placeholder</title>
+  <desc id="desc">Abstract placeholder graphic; replace with an approved supporting photograph.</desc>
+  <rect width="400" height="520" fill="#1a1917"/>
+  <path d="M48 0v520M70 0v520M92 0v520" stroke="#393833" stroke-width="1"/>
+  <path d="M140 72h208v278H140z" fill="none" stroke="#f0eee8" stroke-width="2"/>
+  <path d="m140 350 208-278M140 72l208 278" stroke="#393833" stroke-width="1"/>
+  <circle cx="245" cy="210" r="52" fill="none" stroke="#ff0090" stroke-width="2"/>
+  <text x="140" y="405" fill="#f0eee8" font-family="sans-serif" font-size="12" letter-spacing="3">02 / SUPPORT</text>
+  <text x="140" y="428" fill="#aaa79f" font-family="sans-serif" font-size="10" letter-spacing="2">REPLACE WITH PHOTO</text>
+</svg>

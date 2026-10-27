@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 520" role="img" aria-labelledby="title desc">
+  <title id="title">Portrait placeholder</title>
+  <desc id="desc">Abstract placeholder graphic; replace with Stephanie's approved portrait.</desc>
+  <rect width="400" height="520" fill="#e8e3d9"/>
+  <path d="M0 386 400 126M-20 455 420 169" fill="none" stroke="#cbc6bb" stroke-width="1"/>
+  <circle cx="264" cy="202" r="105" fill="none" stroke="#111110" stroke-width="2"/>
+  <circle cx="264" cy="202" r="80" fill="none" stroke="#ff0090" stroke-width="2"/>
+  <path d="M0 319h400M0 334h400" stroke="#111110" stroke-width="1" opacity=".35"/>
+  <text x="26" y="54" fill="#111110" font-family="sans-serif" font-size="12" letter-spacing="3">01 / PORTRAIT</text>
+  <text x="26" y="468" fill="#111110" font-family="sans-serif" font-size="12" letter-spacing="3">APPROVED IMAGE</text>
+  <path d="M27 482h83" stroke="#ff0090" stroke-width="3"/>
+</svg>
