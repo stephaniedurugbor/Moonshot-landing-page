@@ -164,6 +164,7 @@ if (bpsVisual) {
     if (!video) return;
     video.pause();
     try { video.currentTime = 0; } catch {}
+    video.preload = 'none';
   };
   const pauseBpsSlide = (slide) => {
     slide.querySelector('video')?.pause();
@@ -187,6 +188,7 @@ if (bpsVisual) {
     const slide = bpsSlides[activeBpsIndex];
     const video = slide.querySelector('video');
     if (video) {
+      video.preload = 'auto';
       const playbackRate = Number(video.dataset.playbackRate) || bpsPlaybackRate;
       try { video.currentTime = 0; } catch {}
       video.playbackRate = playbackRate;
@@ -445,7 +447,11 @@ if (sortingGame) {
     selected: false, dragged: false, idleTimer: 1 + Math.random() * 2.4, idleBouncing: false
   }));
   let width = 0, height = 0, dpr = 1, geometry = {}, selected = null, selectionTimeout = 0;
-  let pointer = null, frame = 0, previousTime = 0, tidying = false, gameVisible = !('IntersectionObserver' in window);
+  let pointer = null, frame = 0, previousTime = 0, tidying = false, tidyQuietTime = 0, tidyElapsed = 0, gameVisible = !('IntersectionObserver' in window);
+  let completedRound = false;
+  let manualCelebrationArmed = true;
+  let completionMessageTimeout = 0;
+  const confetti = [];
   let seed = Math.floor(Math.random() * 2147483646) + 1;
   const random = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
   const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -571,8 +577,9 @@ if (sortingGame) {
     if (!ctx || !width || !height) return;
     ctx.clearRect(0, 0, width, height);
     drawBucket(geometry.pink); drawBucket(geometry.black);
-    balls.filter((ball) => ball.bucket === 'pink').forEach(drawBall);
-    balls.filter((ball) => ball.bucket === 'black').forEach(drawBall);
+    const heldBall = pointer?.ball ?? null;
+    balls.filter((ball) => ball !== heldBall && ball.bucket === 'pink').forEach(drawBall);
+    balls.filter((ball) => ball !== heldBall && ball.bucket === 'black').forEach(drawBall);
     // Draw the front lip over the lowest balls to make the open bucket read as a container.
     ['pink', 'black'].forEach((id) => {
       const b = geometry[id];
@@ -580,21 +587,72 @@ if (sortingGame) {
       ctx.strokeStyle = id === 'pink' ? '#FF0090' : '#272624';
       ctx.lineWidth = 2; ctx.stroke();
     });
+    confetti.forEach((particle) => {
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, particle.life / particle.maxLife);
+      ctx.translate(particle.x, particle.y); ctx.rotate(particle.rotation);
+      ctx.fillStyle = particle.color;
+      ctx.fillRect(-particle.size / 2, -particle.size / 2, particle.size, particle.size * .62);
+      ctx.restore();
+    });
+    // Keep the actively dragged ball above the pile and bucket rim so it
+    // remains visually attached to the pointer for the entire gesture.
+    if (heldBall?.dragged) drawBall(heldBall);
   }
   function contains(bucket, ball, x, y) {
     return x >= bucket.cx - bucket.topHalf && x <= bucket.cx + bucket.topHalf && y >= bucket.top && y <= bucket.bottom;
   }
   function correctBucketFor(ball) { return ball.color; }
   function isComplete() { return balls.every((ball) => ball.bucket === correctBucketFor(ball)); }
-  function updateCompletion() {
-    const complete = isComplete();
-    status.classList.toggle('is-complete', complete);
-    if (complete) status.textContent = 'All sorted. Nice and tidy.';
+  function burstConfetti() {
+    if (reducedMotion) return;
+    const colors = ['#FF0090', '#F0EEE8', '#8C8982', '#FF8ACA'];
+    ['pink', 'black'].forEach((id) => {
+      const bucket = geometry[id];
+      for (let i = 0; i < 15; i += 1) {
+        const angle = -Math.PI * (.18 + Math.random() * .64);
+        const speed = 75 + Math.random() * 155;
+        confetti.push({
+          x: bucket.cx + (Math.random() - .5) * bucket.topHalf * .7,
+          y: bucket.top + 10,
+          vx: Math.cos(angle) * speed * (id === 'pink' ? -1 : 1),
+          vy: Math.sin(angle) * speed - 25,
+          life: .7 + Math.random() * .55,
+          maxLife: .7 + Math.random() * .55,
+          size: 3 + Math.random() * 4,
+          rotation: Math.random() * Math.PI,
+          spin: (Math.random() - .5) * 8,
+          color: colors[Math.floor(Math.random() * colors.length)]
+        });
+      }
+    });
+  }
+  function clearCompletionMessage() {
+    if (completionMessageTimeout) window.clearTimeout(completionMessageTimeout);
+    completionMessageTimeout = 0;
+    status.classList.remove('is-complete');
+    status.textContent = '';
+  }
+  function updateCompletion(manual = false) {
+    const complete = isComplete() && balls.every((ball) => !ball.flight && !ball.dragged);
+    if (complete && manual && manualCelebrationArmed && !tidying && !completedRound) {
+      completedRound = true;
+      manualCelebrationArmed = false;
+      if (completionMessageTimeout) window.clearTimeout(completionMessageTimeout);
+      status.textContent = 'Well, look at you. 👀';
+      status.classList.add('is-complete');
+      burstConfetti();
+      completionMessageTimeout = window.setTimeout(() => {
+        status.classList.remove('is-complete');
+        status.textContent = '';
+        completionMessageTimeout = 0;
+      }, 3500);
+    }
     return complete;
   }
   function resetBallsIntoBuckets(bucketForBall, message) {
-    clearSelection(); pointer = null; tidying = true;
-    status.classList.remove('is-complete'); status.textContent = message;
+    clearSelection(); pointer = null; tidying = true; tidyQuietTime = 0; tidyElapsed = 0;
+    clearCompletionMessage(); status.textContent = message;
     balls.forEach((ball) => {
       const bucket = geometry[bucketForBall(ball)];
       ball.bucket = bucket.id; ball.target = bucket.id; ball.flight = 'drop';
@@ -657,6 +715,7 @@ if (sortingGame) {
     if (!ball || !destination || ball.flight || ball.dragged) return;
     clearSelection();
     if (ball.bucket === destination) { status.textContent = `Ball ${ball.id + 1} is already in that bucket.`; return; }
+    status.classList.remove('is-complete');
     ball.asleep = false; ball.rest = 0; ball.flight = 'lift'; ball.target = destination;
     ball.vx = (random() - .5) * 28;
     ball.vy = -Math.sqrt(2 * 1550 * Math.max(30, ball.y - (geometry[ball.bucket].top - ball.r - 10)));
@@ -718,6 +777,13 @@ if (sortingGame) {
   }
   function step(dt) {
     const gravity = 1050;
+    for (let i = confetti.length - 1; i >= 0; i -= 1) {
+      const particle = confetti[i];
+      particle.life -= dt;
+      particle.vy += 300 * dt; particle.x += particle.vx * dt; particle.y += particle.vy * dt;
+      particle.rotation += particle.spin * dt; particle.vx *= .995;
+      if (particle.life <= 0) confetti.splice(i, 1);
+    }
     const motionBusy = Boolean(pointer || tidying || balls.some((ball) => ball.flight));
     balls.forEach((ball) => {
       if (ball.dragged) return;
@@ -746,7 +812,9 @@ if (sortingGame) {
     });
     for (let i = 0; i < balls.length; i += 1) for (let j = i + 1; j < balls.length; j += 1) {
       const a = balls[i], b = balls[j];
-      if (a.bucket !== b.bucket || (a.asleep && b.asleep) || a.flight === 'arc' || b.flight === 'arc') continue;
+      // The pointer owns a dragged ball's position. Do not let collisions
+      // nudge it away between pointer events; normal collisions resume on release.
+      if (a.dragged || b.dragged || a.bucket !== b.bucket || (a.asleep && b.asleep) || a.flight === 'arc' || b.flight === 'arc') continue;
       const dx = b.x - a.x, dy = b.y - a.y, distance = Math.hypot(dx, dy) || .001, minimum = a.r + b.r;
       if (distance >= minimum) continue;
       const nx = dx / distance, ny = dy / distance, overlap = minimum - distance;
@@ -778,12 +846,41 @@ if (sortingGame) {
         if (ball.rest > (tidying ? .12 : .3)) {
           ball.asleep = true; ball.flight = ''; ball.vx = 0; ball.vy = 0;
           if (ball.idleBouncing) { ball.idleBouncing = false; ball.idleTimer = 1.1 + Math.random() * 2.5; }
+          if (!tidying && isComplete()) updateCompletion(true);
         }
       } else ball.rest = 0;
     });
+    if (tidying) {
+      tidyElapsed += dt;
+      const pileIsSupported = balls.every((ball) => {
+        const bucket = geometry[ball.bucket];
+        const restingOnFloor = ball.y + ball.r >= bucket.bottom - 1;
+        const restingOnBall = balls.some((other) => other !== ball && other.bucket === ball.bucket && other.y > ball.y &&
+          Math.hypot(other.x - ball.x, other.y - ball.y) <= ball.r + other.r + 6);
+        return (restingOnFloor || restingOnBall) && Math.abs(ball.vx) < 35 && Math.abs(ball.vy) < 35;
+      });
+      tidyQuietTime = pileIsSupported ? tidyQuietTime + dt : 0;
+      if (tidyQuietTime > .24) {
+        balls.forEach((ball) => {
+          ball.asleep = true; ball.flight = ''; ball.vx = 0; ball.vy = 0; ball.rest = .2;
+        });
+        tidying = false;
+        status.textContent = '';
+      }
+      if (tidying && tidyElapsed > 2.4 && balls.every((ball) => {
+        const bucket = geometry[ball.bucket];
+        return ball.y > bucket.top + (bucket.bottom - bucket.top) * .28 && ball.y + ball.r <= bucket.bottom + 1;
+      })) {
+        balls.forEach((ball) => {
+          ball.asleep = true; ball.flight = ''; ball.vx = 0; ball.vy = 0; ball.rest = .2;
+        });
+        tidying = false;
+        status.textContent = '';
+      }
+    }
     if (tidying && balls.every((ball) => ball.asleep)) {
       tidying = false;
-      updateCompletion();
+      status.textContent = '';
     }
   }
   function tick(now) {
@@ -800,61 +897,85 @@ if (sortingGame) {
   function localPoint(event) {
     const rect = canvas.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
+  // Let vertical swipes over empty glass space scroll the page. A touch that
+  // starts on a ball is an intentional drag, so prevent native scrolling there.
+  canvas?.addEventListener('touchstart', (event) => {
+    const touch = event.changedTouches[0];
+    if (!touch) return;
+    const point = localPoint(touch);
+    if (hitTest(point.x, point.y)) event.preventDefault();
+  }, { passive: false });
   canvas?.addEventListener('pointerdown', (event) => {
     const point = localPoint(event), ball = hitTest(point.x, point.y);
     if (ball) {
-      pointer = { id: event.pointerId, ball, source: ball.bucket, startX: point.x, startY: point.y, lastX: point.x, lastY: point.y, offsetX: ball.x - point.x, offsetY: ball.y - point.y, time: performance.now(), moved: false };
+      pointer = { id: event.pointerId, ball, source: ball.bucket, startX: point.x, startY: point.y, originX: ball.x, originY: ball.y, lastX: point.x, lastY: point.y, offsetX: ball.x - point.x, offsetY: ball.y - point.y, time: performance.now(), moved: false };
       canvas.setPointerCapture(event.pointerId); selectBall(ball); clearSelectionTimeout(); ball.dragged = true;
-    } else if (selected) {
-      const destination = point.x < width / 2 ? 'pink' : 'black'; launch(selected, destination);
+      event.preventDefault();
     }
-    event.preventDefault();
   });
   canvas?.addEventListener('pointermove', (event) => {
     if (!pointer || pointer.id !== event.pointerId) return;
     const point = localPoint(event), ball = pointer.ball;
     if (Math.hypot(point.x - pointer.startX, point.y - pointer.startY) > 5) pointer.moved = true;
-    if (pointer.moved) {
-      pointer.lastX = point.x; pointer.lastY = point.y;
-      const source = geometry[pointer.source];
-      // The ball follows the pointer immediately. Keep it in the source opening
-      // until it has been lifted above the rim, then let it travel freely.
-      // Pointer capture lets the ball keep following the drag even after it
-      // passes the canvas edge, where the canvas naturally clips it from view.
-      ball.y = clamp(point.y + pointer.offsetY, -ball.r * 1.5, height + ball.r);
-      if (ball.y + ball.r > source.top) {
-        const openingHalf = source.topHalf - ball.r * .55;
-        ball.x = clamp(point.x + pointer.offsetX, source.cx - openingHalf, source.cx + openingHalf);
-        ball.y = Math.max(ball.y, source.top + ball.r * .2);
-      } else {
-        ball.x = clamp(point.x + pointer.offsetX, ball.r, width - ball.r);
-      }
-      draw();
-    }
+    pointer.lastX = point.x; pointer.lastY = point.y;
+    // Pointer capture continues to report coordinates outside the canvas.
+    // Do not clamp the held ball to the canvas or let the bucket geometry
+    // constrain it: the pointer remains the sole source of its position.
+    ball.x = point.x + pointer.offsetX;
+    ball.y = point.y + pointer.offsetY;
+    draw();
   });
   function releasePointer(event) {
     if (!pointer || pointer.id !== event.pointerId) return;
-    const point = localPoint(event), ball = pointer.ball, source = geometry[pointer.source]; ball.dragged = false;
+    const point = localPoint(event), ball = pointer.ball;
+    if (pointer.moved) {
+      // Pointer-up can arrive between move events; settle from its final
+      // coordinates so the ball never jumps back to a stale frame position.
+      ball.x = point.x + pointer.offsetX;
+      ball.y = point.y + pointer.offsetY;
+    }
+    ball.dragged = false;
     if (pointer.moved) {
       const destination = point.x < width / 2 ? 'pink' : 'black';
       if (destination !== pointer.source) {
         ball.target = destination;
-        if (ball.y <= source.top - ball.r - 2) {
-          ball.flight = 'arc'; ball.asleep = false; ball.rest = 0;
-          clearSelection(); beginArc(ball); startLoop();
-        } else launch(ball, destination);
+        // The user's drag is the transfer path: keep the ball exactly where
+        // it was released, then let gravity settle it into the destination.
+        // Do not start a second, scripted flight after the pointer is lifted.
+        ball.bucket = destination;
+        ball.flight = 'drop'; ball.asleep = false; ball.rest = 0;
+        ball.vx = 0; ball.vy = 0;
+        clearSelection(); startLoop();
       }
       else {
         ball.asleep = false; ball.flight = ''; ball.vx = 0; ball.vy = 0; ball.rest = 0;
         status.textContent = 'Drag toward the other bucket to toss the ball.'; armSelectionTimeout(); startLoop();
       }
     } else {
+      ball.x = pointer.originX; ball.y = pointer.originY;
       ball.asleep = true; selectBall(ball);
     }
     pointer = null; draw();
   }
+  canvas?.addEventListener('click', (event) => {
+    if (!selected) return;
+    const point = localPoint(event);
+    if (!hitTest(point.x, point.y)) {
+      const destination = point.x < width / 2 ? 'pink' : 'black';
+      launch(selected, destination);
+    }
+  });
   canvas?.addEventListener('pointerup', releasePointer);
-  canvas?.addEventListener('pointercancel', releasePointer);
+  canvas?.addEventListener('pointercancel', (event) => {
+    if (!pointer || pointer.id !== event.pointerId) return;
+    if (pointer.ball) {
+      const ball = pointer.ball;
+      ball.x = pointer.originX; ball.y = pointer.originY;
+      ball.dragged = false; ball.flight = ''; ball.asleep = true; ball.vx = 0; ball.vy = 0;
+    }
+    pointer = null;
+    draw();
+  });
   let keyboardBucket = 'pink';
   canvas?.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
@@ -872,13 +993,17 @@ if (sortingGame) {
     } else if (event.key === 'Escape') clearSelection();
   });
   tidyButton?.addEventListener('click', () => {
+    manualCelebrationArmed = false;
     resetBallsIntoBuckets(correctBucketFor, 'Tidying up…');
     updateCompletion();
   });
   sortingGame.querySelector('[data-sort-action="reshuffle"]')?.addEventListener('click', () => {
+    completedRound = false;
+    manualCelebrationArmed = true;
+    clearCompletionMessage();
+    confetti.length = 0;
     const assignments = shuffleBucketAssignments();
     resetBallsIntoBuckets((ball) => assignments.get(ball.id), 'Mixed up. Your move.');
-    status.classList.remove('is-complete');
   });
 
   resize();
