@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#111110" />
     <meta name="description" content="Stephanie Durugbor — product designer in Lagos, making complicated products easier to understand and use." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://stephanie-moonshot.vercel.app/" />
+    <meta property="og:title" content="Stephanie Durugbor | Product Designer" />
+    <meta property="og:description" content="Stephanie Durugbor — product designer in Lagos, making complicated products easier to understand and use." />
+    <meta property="og:image" content="https://stephanie-moonshot.vercel.app/moonshot-social-preview.jpg" />
+    <meta property="og:image:alt" content="Stephanie in a green patterned outfit." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Stephanie Durugbor | Product Designer" />
+    <meta name="twitter:description" content="Stephanie Durugbor — product designer in Lagos, making complicated products easier to understand and use." />
+    <meta name="twitter:image" content="https://stephanie-moonshot.vercel.app/moonshot-social-preview.jpg" />
     <title>Stephanie Durugbor — Product Designer</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="stylesheet" href="styles.css" />
@@ -43,22 +53,23 @@
           </h1>
           <p class="intro-text">I’m a <span class="role-emphasis">product designer</span>. I like making complicated products easier to understand and use, especially where the details matter.</p>
         </div>
-        <div class="hero-composition" role="group" aria-label="Three overlapping photo placeholders">
-          <figure class="hero-frame hero-frame--left">
+        <div class="hero-composition" role="group" aria-label="Photo album. Swipe horizontally or use the left and right arrow keys to change the front photo." aria-keyshortcuts="ArrowLeft ArrowRight" tabindex="-1">
+          <figure class="hero-frame hero-frame--left" data-album-layer="back">
             <div class="hero-frame-arrival">
               <img src="assets/core-banking/Hero%202.jpg" alt="Stephanie walking away along a tree-lined path." />
             </div>
           </figure>
-          <figure class="hero-frame hero-frame--right">
+          <figure class="hero-frame hero-frame--right" data-album-layer="middle">
             <div class="hero-frame-arrival">
               <img src="assets/core-banking/Hero%203.JPG" alt="Close-up selfie of Stephanie wearing an olive-green top." />
             </div>
           </figure>
-          <figure class="hero-frame hero-frame--main">
+          <figure class="hero-frame hero-frame--main" data-album-layer="front">
             <div class="hero-frame-arrival">
               <img src="assets/core-banking/Hero%201.jpg" alt="Stephanie in a green patterned outfit." />
             </div>
           </figure>
+          <span class="hero-album-status" aria-live="polite" aria-atomic="true"></span>
         </div>
         <div class="beyond-copy">
           <h2 data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">Beyond the design file.</span></span></h2>
@@ -120,13 +131,56 @@
         </div>
       </section>
 
+      <section class="experience bps-section movement" aria-label="Beacon Power Services project">
+        <div class="experience-intro">
+          <p class="eyebrow" data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text"><span class="pink">One more kind of complexity</span></span></span></p>
+          <h2 data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">Good technology still has to explain itself.</span></span></h2>
+          <p class="bps-reveal-copy" data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">Beacon Power Services provides technology that helps electricity utilities and grid operators tackle challenges like power losses and revenue collection. Its website needed to communicate this clearly, which meant rethinking how the business presented itself and organised its content.</span></span></p>
+        </div>
+        <div class="gvac-showcase bps-showcase">
+          <figure class="product-placeholder placeholder bps-visual" data-bps-tone="dark" role="img" aria-label="Beacon Power Services website visual sequence">
+            <div class="bps-slide bps-slide--home is-active" data-bps-tone="dark">
+              <div class="bps-media-clip">
+                <video class="bps-recording" width="2878" height="1574" muted playsinline preload="metadata" data-fallback-duration="3.62" data-playback-rate="1.15" aria-hidden="true">
+                  <source src="assets/core-banking/Hero_New.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </div>
+            <div class="bps-slide" data-bps-tone="dark" aria-hidden="true">
+              <img src="assets/core-banking/Xepp_hero.png" alt="" width="4536" height="2622" loading="lazy" decoding="async" />
+            </div>
+            <div class="bps-slide" data-bps-tone="mint" aria-hidden="true">
+              <img src="assets/core-banking/Xepp%20phone.png" alt="" width="4536" height="2622" loading="lazy" decoding="async" />
+            </div>
+            <div class="bps-slide" data-bps-tone="dark" aria-hidden="true">
+              <img src="assets/core-banking/CAIMS_hero.png" alt="" width="4536" height="2622" loading="lazy" decoding="async" />
+            </div>
+            <div class="bps-slide bps-slide--contact" data-bps-tone="dark" aria-hidden="true">
+              <div class="bps-media-clip bps-media-clip--contact">
+                <img src="assets/core-banking/Contact.png" alt="" width="4536" height="2622" loading="lazy" decoding="async" />
+              </div>
+            </div>
+            <div class="bps-slide bps-slide--final" data-bps-tone="dark" aria-hidden="true">
+              <div class="bps-media-clip">
+                <video class="bps-recording" width="2868" height="1420" muted playsinline preload="metadata" data-fallback-duration="8.9" aria-hidden="true">
+                  <source src="assets/core-banking/Final_CTA.mp4" type="video/mp4" />
+                </video>
+              </div>
+            </div>
+          </figure>
+          <div class="gvac-story">
+            <p class="bps-reveal-copy" data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">My focus was on strategy, information architecture, and content hierarchy, bringing structure to its offerings and creating a clearer path for prospective clients to explore the solutions relevant to them.</span></span></p>
+          </div>
+        </div>
+      </section>
+
       <section class="qa-section movement" aria-labelledby="qa-title">
         <p class="eyebrow eyebrow--accent">Before you go</p>
         <h2 id="qa-title" data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">A few things worth knowing.</span></span></h2>
         <ol class="qa-list">
           <li class="qa-item">
             <h3>Are you open to work, or is this just a very elaborate business card?</h3>
-            <p>I'm open to the right opportunity. A senior product design role, ideally remote, on a team where design and engineering build side by side. If that's your team, say hello.</p>
+            <p>I'm open to the right opportunity. A senior product design role on a team where design and engineering build side by side. If that's your team, say hello.</p>
           </li>
           <li class="qa-item">
             <h3>What's your most unpopular design opinion?</h3>
@@ -137,12 +191,12 @@
             <p>I step back, figure out where the mess started, and picture what “sorted” looks like. If there’s more than one way forward, I weigh the options and get a second opinion when I need one.</p>
           </li>
           <li class="qa-item">
-            <h3>Who are you hoping to meet at Moonshot?</h3>
-            <p>People building interesting things, people who think differently from me, and people I might never have crossed paths with otherwise.</p>
+            <h3>What's the side project that wouldn't stay a side project?</h3>
+            <p>After I built the record management system for my alumni community, other communities started asking for one too. Now I’m exploring how to turn it into a product they can adapt to their own needs.</p>
           </li>
           <li class="qa-item">
-            <h3>What's the side project that wouldn't stay a side project?</h3>
-            <p>I built a record management system for my alumni community, and then other communities started asking for one too. Now I'm exploring how to turn it into a SaaS product that different communities can adapt to their needs.</p>
+            <h3>Who are you hoping to meet at Moonshot?</h3>
+            <p>People building interesting things, people who think differently from me, and people I might never have crossed paths with otherwise.</p>
           </li>
         </ol>
       </section>
@@ -153,7 +207,7 @@
           <h2 id="sort-title" data-heading-reveal><span class="heading-reveal heading-reveal--1"><span class="heading-reveal__text">Fancy a little mess?</span></span></h2>
         </div>
         <div class="sort-game__toolbar">
-          <p class="sort-game__hint" id="sort-hint">Sort the balls. Or don't. You're in charge.<br><span class="sort-game__hint-instruction">Drag a ball from one glass to the other to sort.</span></p>
+          <p class="sort-game__hint" id="sort-hint">Sort the colors. Or don't. You're in charge.<br><span class="sort-game__hint-instruction">Drag a ball from one glass to the other to sort.</span></p>
           <div class="sort-game__controls">
             <button class="sort-game__action sort-game__action--primary ph-no-autocapture" type="button" data-sort-action="tidy">Tidy up</button>
             <button class="sort-game__action" type="button" data-sort-action="reshuffle">Reshuffle</button>
