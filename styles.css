@@ -137,9 +137,10 @@ figcaption { position: absolute; z-index: 1; bottom: 15px; left: 16px; color: va
 .bps-section .experience-intro { margin-bottom: clamp(88px, 10vw, 120px); }
 .experience-intro .primary-text { color: var(--ink); }
 .experience-showcase { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: clamp(32px, 6vw, 90px); align-items: center; }
-.core-banking-visual { position: relative; width: 100%; aspect-ratio: 45 / 29; margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #0586c7; animation: core-banking-frame-color-cut 9.375s steps(1, end) infinite; }
+.core-banking-visual { position: relative; width: 100%; aspect-ratio: 45 / 29; margin: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 12px; background: #0586c7; animation: core-banking-frame-color-cut 9.375s steps(1, end) infinite; animation-play-state: paused; }
 .core-banking-slides { position: absolute; inset: 0; }
-.core-banking-slide { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; visibility: hidden; animation: core-banking-screen-cut 9.375s steps(1, end) infinite; }
+.core-banking-slide { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: contain; visibility: hidden; animation: core-banking-screen-cut 9.375s steps(1, end) infinite; animation-play-state: paused; }
+.core-banking-visual.is-playing, .core-banking-visual.is-playing .core-banking-slide { animation-play-state: running; }
 .core-banking-slide:first-child { visibility: visible; }
 .core-banking-slide:nth-child(2) { animation-delay: -7.5s; }
 .core-banking-slide:nth-child(3) { animation-delay: -5.625s; }

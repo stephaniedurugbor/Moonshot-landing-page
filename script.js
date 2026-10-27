@@ -1,23 +1,71 @@
-import posthog from 'posthog-js';
-
 const posthogToken = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN?.trim();
 const posthogHost = import.meta.env.VITE_POSTHOG_HOST?.trim() || 'https://us.i.posthog.com';
 const isLocalDevelopmentHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-let posthogEnabled = false;
+let posthogClient = null;
+let posthogEnabled = Boolean(posthogToken && !isLocalDevelopmentHost);
+const queuedAnalyticsEvents = [];
 
-if (posthogToken && !isLocalDevelopmentHost) {
-  posthog.init(posthogToken, {
-    api_host: posthogHost,
-    defaults: '2026-08-30',
-    capture_pageview: true,
-    autocapture: true,
-    disable_session_recording: true
-  });
-  posthogEnabled = true;
+if (posthogEnabled) {
+  const initializePosthog = async () => {
+    try {
+      const { default: posthog } = await import('posthog-js');
+      posthog.init(posthogToken, {
+        api_host: posthogHost,
+        defaults: '2026-08-30',
+        capture_pageview: true,
+        autocapture: true,
+        disable_session_recording: true
+      });
+      posthogClient = posthog;
+      queuedAnalyticsEvents.splice(0).forEach((eventName) => posthog.capture(eventName));
+    } catch {
+      posthogEnabled = false;
+      queuedAnalyticsEvents.length = 0;
+    }
+  };
+  if ('requestIdleCallback' in window) window.requestIdleCallback(initializePosthog, { timeout: 2500 });
+  else window.setTimeout(initializePosthog, 1200);
 }
 
 function captureAnalyticsEvent(eventName) {
-  if (posthogEnabled) posthog.capture(eventName);
+  if (!posthogEnabled) return;
+  if (posthogClient) posthogClient.capture(eventName);
+  else queuedAnalyticsEvents.push(eventName);
+}
+
+function activateDeferredImage(image) {
+  if (!image || image.dataset.imageReady === 'true') return Promise.resolve(image);
+  const picture = image.closest('picture');
+  picture?.querySelectorAll('source[data-srcset]').forEach((source) => {
+    source.srcset = source.dataset.srcset;
+    delete source.dataset.srcset;
+  });
+  if (image.dataset.srcset) image.srcset = image.dataset.srcset;
+  if (image.dataset.src) image.src = image.dataset.src;
+  image.fetchPriority = 'low';
+  image.loading = 'eager';
+  image.dataset.imageReady = 'true';
+  delete image.dataset.srcset;
+  delete image.dataset.src;
+  if (image.complete) return image.naturalWidth ? image.decode().catch(() => image) : Promise.resolve(image);
+  return new Promise((resolve) => {
+    image.addEventListener('load', () => image.decode().catch(() => {}).then(() => resolve(image)), { once: true });
+    image.addEventListener('error', () => resolve(image), { once: true });
+  });
+}
+
+// The front card is already prioritised in HTML. Load the two supporting
+// photos once it has arrived, at low priority, so it wins the first request.
+const heroFrontImage = document.querySelector('.hero-frame--main img');
+const loadSupportingHeroPhotos = () => {
+  const load = () => document.querySelectorAll('.hero-frame:not(.hero-frame--main) img[data-src]').forEach(activateDeferredImage);
+  if ('requestIdleCallback' in window) window.requestIdleCallback(load, { timeout: 900 });
+  else window.setTimeout(load, 180);
+};
+if (heroFrontImage?.complete && heroFrontImage.naturalWidth) loadSupportingHeroPhotos();
+else {
+  heroFrontImage?.addEventListener('load', loadSupportingHeroPhotos, { once: true });
+  heroFrontImage?.addEventListener('error', loadSupportingHeroPhotos, { once: true });
 }
 
 document.querySelectorAll('a[href^="mailto:"]').forEach((link) => {
@@ -166,6 +214,10 @@ if (bpsVisual) {
     try { video.currentTime = 0; } catch {}
     video.preload = 'none';
   };
+  const preloadBpsSlide = (slide) => {
+    const image = slide?.querySelector('img[data-src]');
+    if (image) activateDeferredImage(image);
+  };
   const pauseBpsSlide = (slide) => {
     slide.querySelector('video')?.pause();
   };
@@ -185,6 +237,7 @@ if (bpsVisual) {
   const playActiveBpsSlide = () => {
     if (reducedMotionPreference.matches || !bpsSequenceStarted) return;
     window.clearTimeout(bpsTimer);
+    preloadBpsSlide(bpsSlides[(activeBpsIndex + 1) % bpsSlides.length]);
     const slide = bpsSlides[activeBpsIndex];
     const video = slide.querySelector('video');
     if (video) {
@@ -222,8 +275,11 @@ if (bpsVisual) {
     const bpsSequenceObserver = new IntersectionObserver(([entry]) => {
       bpsVisualInView = entry.isIntersecting;
       if (entry.isIntersecting && !reducedMotionPreference.matches) {
-        startBpsSequence();
-        bpsSequenceObserver.disconnect();
+        if (bpsSequenceStarted) playActiveBpsSlide();
+        else startBpsSequence();
+      } else if (!entry.isIntersecting) {
+        window.clearTimeout(bpsTimer);
+        bpsSlides[activeBpsIndex].querySelector('video')?.pause();
       }
     }, { rootMargin: '160px 0px' });
     bpsSequenceObserver.observe(bpsVisual);
@@ -238,13 +294,42 @@ if (bpsVisual) {
       bpsSlides.forEach(stopBpsSlide);
       return;
     }
-    if (bpsSequenceStarted) playActiveBpsSlide();
+    if (bpsSequenceStarted && bpsVisualInView) playActiveBpsSlide();
     else if (bpsVisualInView) startBpsSequence();
+  });
+}
+
+const coreBankingVisual = document.querySelector('.core-banking-visual');
+if (coreBankingVisual) {
+  const coreBankingImages = Array.from(coreBankingVisual.querySelectorAll('.core-banking-slide'));
+  const reducedMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+  let coreBankingLoadStarted = false;
+  const loadCoreBankingSequence = async () => {
+    if (coreBankingLoadStarted) return;
+    coreBankingLoadStarted = true;
+    await activateDeferredImage(coreBankingImages[0]);
+    if (reducedMotionPreference.matches) return;
+    await Promise.all(coreBankingImages.slice(1).map(activateDeferredImage));
+    if (!reducedMotionPreference.matches) coreBankingVisual.classList.add('is-playing');
+  };
+  if ('IntersectionObserver' in window) {
+    const coreBankingObserver = new IntersectionObserver(([entry]) => {
+      if (!entry.isIntersecting) return;
+      loadCoreBankingSequence();
+      coreBankingObserver.disconnect();
+    }, { rootMargin: '220px 0px' });
+    coreBankingObserver.observe(coreBankingVisual);
+  } else loadCoreBankingSequence();
+  reducedMotionPreference.addEventListener('change', () => {
+    if (!coreBankingLoadStarted) return;
+    if (reducedMotionPreference.matches) coreBankingVisual.classList.remove('is-playing');
+    else Promise.all(coreBankingImages.map(activateDeferredImage)).then(() => coreBankingVisual.classList.add('is-playing'));
   });
 }
 
 const rmsRecording = document.querySelector('.rms-recording');
 if (rmsRecording) {
+  const rmsPosterUrl = new URL('./assets/rms/RMS_member_journey-poster.jpg', import.meta.url).href;
   const reducedMotionPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
   const playbackToggle = document.querySelector('.rms-playback-toggle');
   const progressRing = document.querySelector('.rms-playback-progress-value');
@@ -278,6 +363,10 @@ if (rmsRecording) {
     }
     rmsRecording.play().catch(() => {});
   };
+  const loadRmsPoster = () => {
+    if (rmsRecording.poster) return;
+    rmsRecording.poster = rmsPosterUrl;
+  };
 
   playbackToggle?.addEventListener('click', () => {
     if (rmsRecording.paused || rmsRecording.ended) {
@@ -300,11 +389,13 @@ if (rmsRecording) {
   if ('IntersectionObserver' in window) {
     const rmsRecordingObserver = new IntersectionObserver(([entry]) => {
       rmsRecordingInView = entry.isIntersecting;
+      if (entry.isIntersecting) loadRmsPoster();
       updateRmsPlayback();
     }, { rootMargin: '120px 0px' });
     rmsRecordingObserver.observe(rmsRecording);
   } else {
     rmsRecordingInView = true;
+    loadRmsPoster();
     updateRmsPlayback();
   }
 
@@ -447,7 +538,7 @@ if (sortingGame) {
     selected: false, dragged: false, idleTimer: 1 + Math.random() * 2.4, idleBouncing: false
   }));
   let width = 0, height = 0, dpr = 1, geometry = {}, selected = null, selectionTimeout = 0;
-  let pointer = null, frame = 0, previousTime = 0, tidying = false, tidyQuietTime = 0, tidyElapsed = 0, gameVisible = !('IntersectionObserver' in window);
+  let pointer = null, frame = 0, previousTime = 0, tidying = false, tidyQuietTime = 0, tidyElapsed = 0, gameVisible = !('IntersectionObserver' in window), suppressCanvasClick = null;
   let completedRound = false;
   let manualCelebrationArmed = true;
   let completionMessageTimeout = 0;
@@ -707,7 +798,7 @@ if (sortingGame) {
     if (selected) selected.selected = false;
     selected = ball; if (ball) ball.selected = true;
     armSelectionTimeout();
-    status.textContent = ball ? `Ball ${ball.id + 1} (${ball.color}) selected. Drag toward a bucket, or choose one.` : 'Select a ball to move it.';
+    status.textContent = ball ? `Ball ${ball.id + 1} (${ball.color}) selected. Lift it over the rim, then carry it to another bucket.` : 'Select a ball to move it.';
     draw();
   }
   function startLoop() { if (!frame && gameVisible) { previousTime = 0; frame = requestAnimationFrame(tick); } }
@@ -897,6 +988,18 @@ if (sortingGame) {
   function localPoint(event) {
     const rect = canvas.getBoundingClientRect(); return { x: event.clientX - rect.left, y: event.clientY - rect.top };
   }
+  function setDragPosition(drag, point) {
+    drag.ball.y = point.y + drag.offsetY;
+    // Lock x during the lift. Once the whole ball clears the source rim,
+    // horizontal pointer movement carries it across without a position jump.
+    if (!drag.liftedClear && drag.ball.y + drag.ball.r <= geometry[drag.source].top - 2) {
+      drag.liftedClear = true;
+      drag.carryStartPointerX = point.x;
+    }
+    drag.ball.x = drag.liftedClear
+      ? drag.originX + (point.x - drag.carryStartPointerX)
+      : drag.originX;
+  }
   // Let vertical swipes over empty glass space scroll the page. A touch that
   // starts on a ball is an intentional drag, so prevent native scrolling there.
   canvas?.addEventListener('touchstart', (event) => {
@@ -908,7 +1011,13 @@ if (sortingGame) {
   canvas?.addEventListener('pointerdown', (event) => {
     const point = localPoint(event), ball = hitTest(point.x, point.y);
     if (ball) {
-      pointer = { id: event.pointerId, ball, source: ball.bucket, startX: point.x, startY: point.y, originX: ball.x, originY: ball.y, lastX: point.x, lastY: point.y, offsetX: ball.x - point.x, offsetY: ball.y - point.y, time: performance.now(), moved: false };
+      pointer = {
+        id: event.pointerId, ball, source: ball.bucket,
+        startX: point.x, startY: point.y, originX: ball.x, originY: ball.y,
+        offsetY: ball.y - point.y, movedVertically: false, movedAny: false,
+        liftedClear: ball.y + ball.r <= geometry[ball.bucket].top - 2,
+        carryStartPointerX: point.x
+      };
       canvas.setPointerCapture(event.pointerId); selectBall(ball); clearSelectionTimeout(); ball.dragged = true;
       event.preventDefault();
     }
@@ -916,48 +1025,45 @@ if (sortingGame) {
   canvas?.addEventListener('pointermove', (event) => {
     if (!pointer || pointer.id !== event.pointerId) return;
     const point = localPoint(event), ball = pointer.ball;
-    if (Math.hypot(point.x - pointer.startX, point.y - pointer.startY) > 5) pointer.moved = true;
-    pointer.lastX = point.x; pointer.lastY = point.y;
-    // Pointer capture continues to report coordinates outside the canvas.
-    // Do not clamp the held ball to the canvas or let the bucket geometry
-    // constrain it: the pointer remains the sole source of its position.
-    ball.x = point.x + pointer.offsetX;
-    ball.y = point.y + pointer.offsetY;
+    if (Math.abs(point.y - pointer.startY) > 5) pointer.movedVertically = true;
+    if (Math.hypot(point.x - pointer.startX, point.y - pointer.startY) > 5) pointer.movedAny = true;
+    setDragPosition(pointer, point);
     draw();
   });
   function releasePointer(event) {
     if (!pointer || pointer.id !== event.pointerId) return;
     const point = localPoint(event), ball = pointer.ball;
-    if (pointer.moved) {
-      // Pointer-up can arrive between move events; settle from its final
-      // coordinates so the ball never jumps back to a stale frame position.
-      ball.x = point.x + pointer.offsetX;
-      ball.y = point.y + pointer.offsetY;
-    }
+    const drag = pointer;
+    if (drag.movedAny) suppressCanvasClick = { until: performance.now() + 500, x: event.clientX, y: event.clientY };
+    if (drag.movedVertically) setDragPosition(drag, point);
+    else { ball.x = drag.originX; ball.y = drag.originY; }
     ball.dragged = false;
-    if (pointer.moved) {
-      const destination = point.x < width / 2 ? 'pink' : 'black';
-      if (destination !== pointer.source) {
-        ball.target = destination;
-        // The user's drag is the transfer path: keep the ball exactly where
-        // it was released, then let gravity settle it into the destination.
-        // Do not start a second, scripted flight after the pointer is lifted.
-        ball.bucket = destination;
-        ball.flight = 'drop'; ball.asleep = false; ball.rest = 0;
-        ball.vx = 0; ball.vy = 0;
-        clearSelection(); startLoop();
-      }
-      else {
-        ball.asleep = false; ball.flight = ''; ball.vx = 0; ball.vy = 0; ball.rest = 0;
-        status.textContent = 'Drag toward the other bucket to toss the ball.'; armSelectionTimeout(); startLoop();
-      }
+    pointer = null;
+    if (drag.movedVertically) {
+      // Choose a destination only after the ball has cleared its original rim.
+      // Release leaves it at the pointer position; physics immediately takes over.
+      const destination = drag.liftedClear ? (ball.x < width / 2 ? 'pink' : 'black') : drag.source;
+      ball.bucket = destination; ball.target = destination; ball.flight = 'drop';
+      ball.asleep = false; ball.rest = 0; ball.vx = 0; ball.vy = 0;
+      status.classList.remove('is-complete');
+      status.textContent = 'Ball released. It will settle into its glass.';
+      clearSelection(); startLoop();
     } else {
-      ball.x = pointer.originX; ball.y = pointer.originY;
-      ball.asleep = true; selectBall(ball);
+      ball.asleep = true;
+      selectBall(ball);
     }
-    pointer = null; draw();
+    draw();
   }
   canvas?.addEventListener('click', (event) => {
+    if (suppressCanvasClick) {
+      const isPointerFollowup = performance.now() <= suppressCanvasClick.until &&
+        Math.hypot(event.clientX - suppressCanvasClick.x, event.clientY - suppressCanvasClick.y) <= 24;
+      suppressCanvasClick = null;
+      if (isPointerFollowup) {
+        event.preventDefault();
+        return;
+      }
+    }
     if (!selected) return;
     const point = localPoint(event);
     if (!hitTest(point.x, point.y)) {
